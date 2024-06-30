@@ -1,10 +1,11 @@
-from pprint import pprint
+import typer
 
-from constants.env import env
-from github import api as github_service
+from github.cli import cli_app as github_cli_app
+
+app = typer.Typer()
+
+app.add_typer(github_cli_app, name="github")
+
 
 if __name__ == "__main__":
-    print(env.get("GITHUB_TOKEN"))
-
-    data = github_service.get_repos_of_auth_user()
-    pprint(data)
+    app()
