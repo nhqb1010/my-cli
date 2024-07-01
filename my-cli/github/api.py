@@ -36,3 +36,12 @@ def get_repos_of_auth_user():
     data = response.json()
 
     return [_format_repo_response(repo) for repo in data]
+
+
+def get_a_file_content(file_path: str, owner: str, repo: str, branch: str = "main"):
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    data = response.json()
+
+    return data
