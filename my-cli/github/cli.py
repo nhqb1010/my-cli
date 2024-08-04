@@ -29,3 +29,16 @@ def get_file_content(
 ):
     data = github_service.get_a_file_content(file_path, username, repo, branch)
     cli_print(data)
+
+
+@cli_app.command("update-file", help="Update the content of a file in a repository")
+def update_file_content(
+    file_path: str = typer.Option(..., "--file", "-f", help="Path to the file"),
+    username: str = typer.Option(
+        ..., "--username", "-u", help="Owner of the repository"
+    ),
+    repo: str = typer.Option(..., "--repo", "-r", help="Repository name"),
+    branch: str = typer.Option("main", "--branch", "-b", help="Branch name"),
+):
+    data = github_service.get_a_file_content(file_path, username, repo, branch)
+    cli_print(data)
