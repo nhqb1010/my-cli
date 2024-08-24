@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 
 
 class AppException(Exception):
@@ -8,3 +8,16 @@ class AppException(Exception):
 
     def to_dict(self):
         return dict(message=self.message, code=self.code)
+
+
+class GithubException(AppException):
+    def __init__(
+        self,
+        status_code: int,
+        data: dict[str, Any],
+        message: str,
+        code: Optional[int] = 1011,
+    ):
+        self.status_code = status_code
+        self.data = data
+        super().__init__(message, code)

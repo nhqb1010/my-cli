@@ -1,22 +1,99 @@
 import json
+from pprint import pformat
 from typing import Any, Optional
 
 import requests
+from rich import print as cli_print
 
-from constants.env import env
-from core.errors import AppException
+from core.errors import GithubException
 from core.utils import string_to_base64_string
+from github.constants import (
+    DEFAULT_HEADERS,
+    ACCEPTABLE_GITHUB_METHODS,
+    ACCEPTABLE_GITHUB_STATUS_CODES,
+)
 
-GITHUB_TOKEN = env.get("GITHUB_TOKEN")
 
-if not GITHUB_TOKEN:
-    raise AppException("GITHUB_TOKEN is not set")
+def handle_github_error_for_cli(response: requests.Response, url: str, method: str):
+    """
+    Handles errors returned by the GitHub API.
 
-headers: dict[str, Any] = {
-    "Accept": "application/vnd.github.v3+json",
-    "Authorization": f"token {GITHUB_TOKEN}",
-    "X-GitHub-Api-Version": "2022-11-28",
-}
+    Args:
+        response (requests.Response): The response object returned by the API request.
+        url (str): The URL of the API request.
+        method (str): The HTTP method used for the API request.
+    """
+    message = response.text
+    code = response.status_code
+    if code == 404:
+        message = "Branch/File path not found"
+    elif code == 400:
+        message = "Bad request, invalid data or query param"
+
+    error_data = {
+        "status_code": code,
+        "message": message,
+        "url": url,
+        "method": method,
+    }
+    cli_print(
+        f"[italic red]\n\nGithub API Error: \n{pformat(error_data, sort_dicts=False)}[/italic red]"
+    )
+
+
+def handle_github_api(
+    method: str,
+    url: str,
+    headers: dict[str, Any] = None,
+    query_params: dict[str, Any] = None,
+    data: dict[str, Any] = None,
+    retry: int = 3,
+    raise_error: bool = False,
+) -> dict[str, Any] | None:
+    """
+    Sends a request to the GitHub API.
+
+    Args:
+        method (str): The HTTP method to use for the request.
+        url (str): The URL of the API endpoint.
+        headers (dict[str, Any], optional): Additional headers to include in the request. Defaults to None.
+        query_params (dict[str, Any], optional): Query parameters to include in the request. Defaults to None.
+        data (dict[str, Any], optional): The request payload. Defaults to None.
+        retry (int, optional): The number of times to retry the request in case of failure. Defaults to 3.
+        raise_error (bool, optional): If set to True, raises an exception if the request fails. Defaults to False.
+
+    Returns:
+        dict[str, Any]: The JSON response from the API.
+
+    Raises:
+        ValueError: If the specified HTTP method is not supported.
+        AppException: If the API request fails after the specified number of retries.
+    """
+    if method not in ACCEPTABLE_GITHUB_METHODS:
+        raise ValueError(f"Method {method} is not supported")
+
+    headers = DEFAULT_HEADERS if headers is None else {**DEFAULT_HEADERS, **headers}
+
+    if data:
+        data = {k: v for k, v in data.items() if v is not None}
+
+    response = None
+    for _ in range(retry):
+        response = requests.request(
+            method, url, headers=headers, params=query_params, data=json.dumps(data)
+        )
+
+        if response.status_code in ACCEPTABLE_GITHUB_STATUS_CODES:
+            return response.json()
+
+    if raise_error:
+        raise GithubException(
+            status_code=response.status_code,
+            data=response.json(),
+            message="Failed to make a request to the GitHub API",
+        )
+
+    handle_github_error_for_cli(response, url, method)
 
 
 def _format_repo_response(data: dict[str, Any]):
@@ -33,7 +110,7 @@ def _format_repo_response(data: dict[str, Any]):
 
 def get_repos_of_auth_user():
     url = "https://api.github.com/user/repos"
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=DEFAULT_HEADERS)
     response.raise_for_status()
     data = response.json()
 
@@ -43,14 +120,11 @@ def get_repos_of_auth_user():
 def get_a_file_content(file_path: str, owner: str, repo: str, branch: str = "main"):
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
 
+    query_params = None
     if branch:
-        url += f"?ref={branch}"
+        query_params = {"ref": branch}
 
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    data = response.json()
-
-    return data
+    return handle_github_api("GET", url, query_params=query_params)
 
 
 def create_update_a_file_content(
@@ -71,9 +145,4 @@ def create_update_a_file_content(
         "sha": sha,
     }
 
-    data = {k: v for k, v in data.items() if v is not None}
-
-    response = requests.put(url, headers=headers, data=json.dumps(data))
-    data = response.json()
-
-    return data
+    return handle_github_api("PUT", url, data=data)
