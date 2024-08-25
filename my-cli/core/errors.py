@@ -21,3 +21,8 @@ class GithubException(AppException):
         self.status_code = status_code
         self.data = data
         super().__init__(message, code)
+
+
+class PasswordException(AppException):
+    def __init__(self, message: str, code: Optional[int] = 1012):
+        super().__init__(message, code)
