@@ -2,6 +2,7 @@ import typer
 from rich import print as cli_print
 
 from core.error_handlers import cli_error_handler
+from tools import systems as system_functions
 from password import core as password_core
 
 cli_app = typer.Typer()
@@ -28,6 +29,9 @@ def generate_password(
     exclude_special: bool = typer.Option(
         False, "--exclude-special", help="Exclude special characters"
     ),
+    copy_to_clipboard: bool = typer.Option(
+        False, "--copy", help="Copy the generated password to clipboard"
+    ),
     hide_password: bool = typer.Option(
         False, "--hide", "-h", help="Hide the generated password"
     ),
@@ -46,6 +50,12 @@ def generate_password(
             message = f"\nGenerated password [italic](hidden)[italic]: [bold green]{'*' * len(password)}[bold green]\n"
 
         cli_print(message)
+
+        if copy_to_clipboard:
+            success = system_functions.copy_to_clipboard(password)
+
+            if success:
+                cli_print("[italic]✨ Password copied to clipboard. ✨[italic]\n")
 
     cli_error_handler(func=_handle_generate_password)
 
