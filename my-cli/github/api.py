@@ -117,14 +117,22 @@ def get_repos_of_auth_user():
     return [_format_repo_response(repo) for repo in data]
 
 
-def get_a_file_content(file_path: str, owner: str, repo: str, branch: str = "main"):
+def get_a_file_content(
+    file_path: str,
+    owner: str,
+    repo: str,
+    branch: str = "main",
+    raise_error: bool = False,
+):
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
 
     query_params = None
     if branch:
         query_params = {"ref": branch}
 
-    return handle_github_api("GET", url, query_params=query_params)
+    return handle_github_api(
+        "GET", url, query_params=query_params, raise_error=raise_error
+    )
 
 
 def create_update_a_file_content(
@@ -135,6 +143,7 @@ def create_update_a_file_content(
     content: str,
     sha: Optional[str],
     branch: Optional[str] = None,
+    raise_error: bool = False,
 ):
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
 
@@ -145,4 +154,56 @@ def create_update_a_file_content(
         "sha": sha,
     }
 
-    return handle_github_api("PUT", url, data=data)
+    return handle_github_api("PUT", url, data=data, raise_error=raise_error)
+
+
+def get_or_create_a_file_content(
+    file_path: str,
+    owner: str,
+    repo: str,
+    default_content: str = "",
+    default_commit_message: str = "Initial commit",
+    branch: str = "main",
+    raise_error: bool = False,
+) -> tuple[dict[str, Any] | None, bool]:
+    """
+    Retrieves the content of a file from a GitHub repository, or creates a new file with the specified content if the file does not exist.
+    Args:
+        file_path (str): The path of the file.
+        owner (str): The owner of the GitHub repository.
+        repo (str): The name of the GitHub repository.
+        default_content (str, optional): The default content to use when creating a new file. Defaults to an empty string.
+        default_commit_message (str, optional): The commit message to use when creating a new file. Defaults to "Initial commit".
+        branch (str, optional): The branch to use. Defaults to "main".
+        raise_error (bool, optional): Whether to raise an error if the file does not exist. Defaults to False.
+    Returns:
+        tuple[dict[str, Any] | None, bool]: A tuple containing the file content and a boolean indicating whether a new file was created.
+    Raises:
+        GithubException: If an error occurs while retrieving the file content and `raise_error` is set to True.
+    """
+
+    try:
+        return get_a_file_content(
+            file_path=file_path,
+            owner=owner,
+            repo=repo,
+            branch=branch,
+            raise_error=raise_error,
+        ), False
+
+    except GithubException as e:
+        if e.status_code != 404:
+            raise e
+
+    create_update_a_file_content(
+        file_path=file_path,
+        owner=owner,
+        repo=repo,
+        commit_message=default_commit_message,
+        content=default_content,
+        sha=None,
+        branch=branch,
+        raise_error=raise_error,
+    )
+
+    return {"content": default_content}, True

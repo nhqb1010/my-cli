@@ -17,3 +17,21 @@ class InvalidPasswordLengthException(PasswordException):
     def __init__(self, message: Optional[str] = None):
         message = message if message else "Invalid password length."
         super().__init__(message, code=2000)
+
+
+class MissingRequiredVarForPasswordServerException(PasswordException):
+    def __init__(self, message: Optional[str] = None):
+        message = (
+            message
+            if message
+            else "Missing required environment variable for password server."
+        )
+        super().__init__(message, code=2002)
+
+
+class PasswordServerLoadException(PasswordException):
+    def __init__(self, message: Optional[str] = None):
+        message = (
+            message if message else "Error while loading password data from server."
+        )
+        super().__init__(message, code=2003)

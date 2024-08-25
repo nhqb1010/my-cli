@@ -1,20 +1,29 @@
 import typer
-from rich import print as cli_print
 
+from core.errors import AppException
 from core.error_handlers import cli_error_handler
+from core.rich import cli_iso_print, cli_print
 from tools import systems as system_functions
-from password import core as password_core
+from password import core as password_core, services as password_services
 
 cli_app = typer.Typer()
 
 
-@cli_app.command("qgenerate", help="Quick password generator")
+@cli_app.command(
+    "qgenerate",
+    help="Quick password generator",
+    rich_help_panel="Password Generator",
+)
 def quick_password_generator():
     password = password_core.generate_safe_token()
     cli_print(f"\nGenerated password: [bold]{password}[bold]\n")
 
 
-@cli_app.command("generate", help="Generate a password with custom options")
+@cli_app.command(
+    "generate",
+    help="Generate a password with custom options",
+    rich_help_panel="Password Generator",
+)
 def generate_password(
     length: int = typer.Option(20, "--length", "-l", help="Length of the password"),
     exclude_lowercase: bool = typer.Option(
@@ -60,6 +69,56 @@ def generate_password(
     cli_error_handler(func=_handle_generate_password)
 
 
-@cli_app.command("test")
-def test():
-    cli_print(password_core.generate_safe_token_urls())
+@cli_app.command(
+    "check_pw_connection",
+    help="Check the connection to the password server",
+    rich_help_panel="Password Manager",
+)
+def check_password_server_connection():
+    def _handle_copy_password():
+        try:
+            data, _ = password_services.check_server_connection()
+            if data is not None:
+                cli_iso_print(
+                    "✅ Connection to password server is [bold green]successful[bold green]"
+                )
+                return
+
+        except AppException as _:
+            cli_iso_print(
+                "❌ Connection to password server [italic red]failed[italic red]"
+            )
+
+    cli_error_handler(func=_handle_copy_password)
+
+
+@cli_app.command(
+    "set_password",
+    help="Set a new password in the password server",
+    rich_help_panel="Password Manager",
+)
+def set_password():
+    def _handle_set_password():
+        password_services.set_password(
+            password="123",
+            username="test",
+            domain="test",
+        )
+
+    cli_error_handler(func=_handle_set_password)
+
+
+@cli_app.command(
+    "get_password",
+    help="Get a password from the password server",
+    rich_help_panel="Password Manager",
+)
+def get_password():
+    def _handle_get_password():
+        password = password_services.get_password(
+            username="test",
+            domain="test",
+        )
+        cli_print(f"\nPassword: [bold green]{password}[bold green]\n")
+
+    cli_error_handler(func=_handle_get_password)
