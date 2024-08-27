@@ -35,3 +35,9 @@ class PasswordServerLoadException(PasswordException):
             message if message else "Error while loading password data from server."
         )
         super().__init__(message, code=2003)
+
+
+class PasswordUsernameExist(PasswordException):
+    def __init__(self, message: Optional[str] = None):
+        message = message if message else "Username already exist for this domain."
+        super().__init__(message, code=2004)

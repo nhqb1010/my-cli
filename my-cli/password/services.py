@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 from constants.env import env
 from core.utils import base64_string_to_string
@@ -7,10 +8,25 @@ from github import api as github_api
 from password.errors import (
     MissingRequiredVarForPasswordServerException,
     PasswordServerLoadException,
+    PasswordUsernameExist,
 )
+
+COMMON_REQUEST_PAYLOAD = {
+    "file_path": env.get("SECRET_FILE_NAME"),
+    "owner": env.get("GITHUB_USER"),
+    "repo": env.get("SECRET_REPO_NAME"),
+    "branch": "main",
+    "raise_error": True,
+}
 
 
 def _ensure_necessary_env_vars():
+    """
+    Ensures that the necessary environment variables are set.
+
+    Raises:
+        MissingRequiredVarForPasswordServerException: If any of the required environment variables are not set.
+    """
     if not env.get("GITHUB_TOKEN"):
         raise MissingRequiredVarForPasswordServerException(
             "GITHUB_TOKEN is not set in .env file"
@@ -56,52 +72,80 @@ def check_server_connection():
     )
 
 
-def get_password_data():
+def get_password_data() -> dict[str, Any]:
+    """
+    Retrieves the password data from a secret file in a GitHub repository.
+
+    Returns:
+        A dictionary containing the password data.
+
+    Raises:
+        PasswordServerLoadException: If there is an error loading the password data from the server.
+    """
+
     _ensure_necessary_env_vars()
 
     try:
-        file_content = github_api.get_a_file_content(
-            file_path=env.get("SECRET_FILE_NAME"),
-            owner=env.get("GITHUB_USER"),
-            repo=env.get("SECRET_REPO_NAME"),
-            raise_error=True,
-        )
+        file_content = github_api.get_a_file_content(**COMMON_REQUEST_PAYLOAD)
         return file_content
     except GithubException:
         raise PasswordServerLoadException()
 
 
+def _set_password_data(
+    password: str,
+    username: str,
+    domain: str,
+    old_content: dict[str, Any],
+    overwrite_password: bool = False,
+):
+    """
+    Set the password data for a given username and domain.
+
+    Args:
+        password (str): The password to be set.
+        username (str): The username associated with the password.
+        domain (str): The domain associated with the password.
+        old_content (dict[str, Any]): The existing password data.
+        overwrite_password (bool, optional): Whether to overwrite the password if it already exists. Defaults to False.
+
+    Returns:
+        dict[str, Any]: The updated password data.
+
+    Raises:
+        PasswordUsernameExist: If the username already exists for the given domain and overwrite_password is False.
+    """
+    # If domain does not exist, create it
+    if not old_content.get(domain):
+        old_content[domain] = {}
+
+    # If username does not exist, raise Error if overwrite_password is False
+    if not overwrite_password and old_content[domain].get(username):
+        raise PasswordUsernameExist()
+
+    old_content[domain][username] = password
+    return old_content
+
+
 def set_password(password: str, username: str, domain: str):
     _ensure_necessary_env_vars()
 
-    current_data = get_password_data()
-
     try:
+        current_data = get_password_data()
+
         sha = current_data.get("sha")
-        content = json.loads(base64_string_to_string(current_data.get("content")))
+        string_content = base64_string_to_string(current_data.get("content"))
+        dict_content: dict[str, Any] = json.loads(string_content)
 
-        # Set the password
-        if not content.get(domain):
-            content[domain] = {}
-            content[domain][username] = password
-        elif not content[domain].get(username):
-            content[domain][username] = password
-        else:
-            content[domain][username] = password
-
-        new_file_content = json.dumps(content, indent=4)
+        dict_content = _set_password_data(password, username, domain, dict_content)
+        new_file_content = json.dumps(dict_content, indent=4)
         github_api.create_update_a_file_content(
-            file_path=env.get("SECRET_FILE_NAME"),
-            owner=env.get("GITHUB_USER"),
-            repo=env.get("SECRET_REPO_NAME"),
             commit_message=f"Update password for {username} at {domain}",
             content=new_file_content,
             sha=sha,
-            branch="main",
-            raise_error=True,
+            **COMMON_REQUEST_PAYLOAD,
         )
-    except json.JSONDecodeError as e:
-        print(e)
+    except json.JSONDecodeError:
         raise PasswordServerLoadException()
 
 

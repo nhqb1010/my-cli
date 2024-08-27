@@ -69,6 +69,9 @@ def generate_password(
     cli_error_handler(func=_handle_generate_password)
 
 
+# *** PASSWORD MANAGER ***
+
+
 @cli_app.command(
     "check_pw_connection",
     help="Check the connection to the password server",
@@ -97,12 +100,20 @@ def check_password_server_connection():
     help="Set a new password in the password server",
     rich_help_panel="Password Manager",
 )
-def set_password():
+def set_password(
+    domain: str = typer.Option(..., "--domain", "-d", help="Domain for the password"),
+    username: str = typer.Option(
+        ..., "--username", "-u", help="Username/Email/Identifier for the password"
+    ),
+    password: str = typer.Option(
+        ..., "--password", "-p", help="Password to set for the username"
+    ),
+):
     def _handle_set_password():
         password_services.set_password(
-            password="123",
-            username="test",
-            domain="test",
+            password=password,
+            username=username,
+            domain=domain,
         )
 
     cli_error_handler(func=_handle_set_password)
@@ -113,11 +124,16 @@ def set_password():
     help="Get a password from the password server",
     rich_help_panel="Password Manager",
 )
-def get_password():
+def get_password(
+    domain: str = typer.Option(..., "--domain", "-d", help="Length of the password"),
+    username: str = typer.Option(
+        ..., "--username", "-u", help="Username/Email/Identifier for the password"
+    ),
+):
     def _handle_get_password():
         password = password_services.get_password(
-            username="test",
-            domain="test",
+            username=username,
+            domain=domain,
         )
         cli_print(f"\nPassword: [bold green]{password}[bold green]\n")
 
