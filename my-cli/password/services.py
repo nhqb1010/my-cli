@@ -86,8 +86,14 @@ def get_password_data() -> dict[str, Any]:
     _ensure_necessary_env_vars()
 
     try:
-        file_content = github_api.get_a_file_content(**COMMON_REQUEST_PAYLOAD)
-        return file_content
+        github_content = github_api.get_a_file_content(**COMMON_REQUEST_PAYLOAD)
+
+        file_content: dict[str, Any] = json.loads(
+            base64_string_to_string(github_content.get("content"))
+        )
+        github_content["content"] = file_content
+
+        return github_content
     except GithubException:
         raise PasswordServerLoadException()
 
@@ -134,7 +140,7 @@ def set_password(password: str, username: str, domain: str):
         current_data = get_password_data()
 
         sha = current_data.get("sha")
-        string_content = base64_string_to_string(current_data.get("content"))
+        string_content = current_data.get("content")
         dict_content: dict[str, Any] = json.loads(string_content)
 
         dict_content = _set_password_data(password, username, domain, dict_content)
@@ -155,7 +161,7 @@ def get_password(username: str, domain: str) -> str:
     current_data = get_password_data()
 
     try:
-        content = json.loads(base64_string_to_string(current_data.get("content")))
+        content = current_data.get("content")
 
         return content.get(domain, {}).get(username)
     except json.JSONDecodeError:

@@ -96,7 +96,7 @@ def check_password_server_connection():
 
 
 @cli_app.command(
-    "set_password",
+    "sv_set_password",
     help="Set a new password in the password server",
     rich_help_panel="Password Manager",
 )
@@ -120,7 +120,7 @@ def set_password(
 
 
 @cli_app.command(
-    "get_password",
+    "sv_get_password",
     help="Get a password from the password server",
     rich_help_panel="Password Manager",
 )
@@ -129,12 +129,49 @@ def get_password(
     username: str = typer.Option(
         ..., "--username", "-u", help="Username/Email/Identifier for the password"
     ),
+    copy_to_clipboard: bool = typer.Option(
+        False, "--copy", help="Copy the generated password to clipboard"
+    ),
 ):
     def _handle_get_password():
         password = password_services.get_password(
             username=username,
             domain=domain,
         )
-        cli_print(f"\nPassword: [bold green]{password}[bold green]\n")
+
+        if copy_to_clipboard:
+            success = system_functions.copy_to_clipboard(password)
+
+            if success:
+                cli_iso_print("[italic]✨ Password copied to clipboard. ✨[italic]")
+        else:
+            cli_print(f"\nPassword: [bold green]{password}[bold green]\n")
 
     cli_error_handler(func=_handle_get_password)
+
+
+@cli_app.command(
+    "sv_view_general",
+    help="",
+    rich_help_panel="Password Manager",
+)
+def view_general_info():
+    def handle_view_general():
+        data = password_services.get_password_data()
+        password_content = data.get("content")
+
+        info = {}
+        for domain, domain_data in password_content.items():
+            info[domain] = len(domain_data)
+
+        # Print the info
+        cli_print("\n[bold]General Info:[/bold]")
+        cli_print(f"\nTotal Domains: [bold green]{len(info)}[/bold green]")
+
+        for domain, count in info.items():
+            cli_print(
+                f"- [bold]{domain}[/bold]: [bold green]{count}[/bold green] account(s)"
+            )
+        print("")
+
+    cli_error_handler(func=handle_view_general)

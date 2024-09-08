@@ -47,7 +47,7 @@ def handle_github_api(
     headers: dict[str, Any] = None,
     query_params: dict[str, Any] = None,
     data: dict[str, Any] = None,
-    retry: int = 3,
+    retry: int = 1,
     raise_error: bool = False,
 ) -> dict[str, Any] | None:
     """
@@ -78,18 +78,25 @@ def handle_github_api(
         data = {k: v for k, v in data.items() if v is not None}
 
     response = None
+    error = {}
     for _ in range(retry):
-        response = requests.request(
-            method, url, headers=headers, params=query_params, data=json.dumps(data)
-        )
+        try:
+            response = requests.request(
+                method, url, headers=headers, params=query_params, data=json.dumps(data)
+            )
 
-        if response.status_code in ACCEPTABLE_GITHUB_STATUS_CODES:
-            return response.json()
+            if response.status_code in ACCEPTABLE_GITHUB_STATUS_CODES:
+                return response.json()
+        except requests.RequestException as e:
+            if isinstance(e, requests.ConnectionError):
+                error = {
+                    "message": "Cannot connect to Github Server. Ensure internet connection"
+                }
 
     if raise_error:
         raise GithubException(
-            status_code=response.status_code,
-            data=response.json(),
+            status_code=response.status_code if response else 500,
+            data=response.json() if response else error.get("message"),
             message="Failed to make a request to the GitHub API",
         )
 
