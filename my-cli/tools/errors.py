@@ -13,3 +13,11 @@ class CopyToClipboardException(ToolException):
             message=message if message else "Error while copy text to clipboard.",
             code=3000,
         )
+
+
+class FolderCreationExistException(ToolException):
+    def __init__(self, message: Optional[str] = None):
+        super().__init__(
+            message=message if message else "Error while creating folder.",
+            code=3001,
+        )

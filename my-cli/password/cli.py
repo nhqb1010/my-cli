@@ -70,8 +70,6 @@ def generate_password(
 
 
 # *** PASSWORD MANAGER ***
-
-
 @cli_app.command(
     "check_pw_connection",
     help="Check the connection to the password server",
@@ -139,13 +137,13 @@ def get_password(
             domain=domain,
         )
 
+        cli_print(f"Password: [bold green]{password}[bold green]")
+
         if copy_to_clipboard:
             success = system_functions.copy_to_clipboard(password)
 
             if success:
                 cli_iso_print("[italic]✨ Password copied to clipboard. ✨[italic]")
-        else:
-            cli_print(f"\nPassword: [bold green]{password}[bold green]\n")
 
     cli_error_handler(func=_handle_get_password)
 
@@ -172,6 +170,5 @@ def view_general_info():
             cli_print(
                 f"- [bold]{domain}[/bold]: [bold green]{count}[/bold green] account(s)"
             )
-        print("")
 
     cli_error_handler(func=handle_view_general)

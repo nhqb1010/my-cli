@@ -1,10 +1,9 @@
-import subprocess
 import platform
+import subprocess
+from pathlib import Path
 
 from tools.constants import OSName
-from tools.errors import CopyToClipboardException
-
-# subprocess.run("pbcopy", text=True, input=password)
+from tools.errors import CopyToClipboardException, FolderCreationExistException
 
 
 def get_os_name() -> str:
@@ -57,3 +56,23 @@ def copy_to_clipboard(password: str, raise_exception: bool = False) -> None:
             raise e
 
         return False
+
+
+def create_folder_from_root_folder(folder_path: str) -> None:
+    """
+    Creates a folder if it does not exist.
+
+    Args:
+        folder_path (str): The path to the folder.
+
+    Returns:
+        None
+    """
+    root_folder = Path(__file__).parent.parent.parent
+    path = root_folder / folder_path
+
+    # If exist raise error
+    if path.exists() or path.is_dir():
+        raise FolderCreationExistException(f"Folder already exists at {path}")
+
+    Path(folder_path).mkdir(parents=True)
